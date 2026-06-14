@@ -86,7 +86,7 @@ No test makes a network call.
 
 - Render service ID: `srv-d8lgdkt7vvec739knr60`
 - Live URL: https://cfius-screener.onrender.com
-- GitHub: `JaKPoT/cfius-screener`, auto-deploys on push to `master`
+- GitHub: `JakPot42/cfius-screener`, auto-deploys on push to `master`
 - Env vars set on the service: `PYTHON_VERSION=3.11.9`, `DEMO_MODE=True`,
   `ANTHROPIC_API_KEY` (required for M2 intake parsing + memo drafting)
 - render.yaml envVars only apply via Blueprints — set them in the dashboard
