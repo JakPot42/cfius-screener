@@ -17,6 +17,9 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from claude_intake import IntakeError, parse_deal_description
@@ -63,7 +66,10 @@ async def lifespan(_app: FastAPI):
 # process's working directory is (uvicorn from the repo, pytest from anywhere).
 _HERE = Path(__file__).resolve().parent
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title=APP_TITLE, lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.mount("/static", StaticFiles(directory=_HERE / "static"), name="static")
 templates = Jinja2Templates(directory=_HERE / "templates")
 
@@ -197,12 +203,21 @@ def intake_form(request: Request):
     return _template(request, "intake_form.html", {})
 
 
+_MAX_INTAKE_CHARS = 5_000
+
 @app.post("/intake", response_class=HTMLResponse)
+@limiter.limit("10/minute")
 def intake_parse(
     request: Request,
     description: str = Form(...),
 ):
     """Claude parses the description. Renders confirm screen — nothing is stored."""
+    description = description.strip()
+    if len(description) > _MAX_INTAKE_CHARS:
+        return _template(request, "intake_form.html", {
+            "error": f"Description too long ({len(description):,} chars). Maximum is {_MAX_INTAKE_CHARS:,} characters.",
+            "description": description[:200],
+        })
     try:
         proposed = parse_deal_description(description)
     except IntakeError as exc:
