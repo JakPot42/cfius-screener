@@ -59,6 +59,20 @@ stored row — the web form and the seeder both use it.
 **Anthropic exception pattern (M2):** catch `Exception`, not
 `anthropic.APIError` — the SDK raises `TypeError` on auth failures.
 
+**SQLAlchemy version floor raised to 2.0.51 (found during the Arbor
+merger's architecture review, July 2026).** SQLAlchemy 2.0.36 cannot
+resolve `X | None` column annotations (e.g. `covered_basis: Mapped[str |
+None]`) under Python 3.14 — `models.py` fails to import at all, a
+`TypeError` inside SQLAlchemy's own `de_stringify_union_elements`, at
+class-definition time, before any test even runs. Confirmed directly: this
+repo's own unmodified `models.py`, imported fresh with the
+previously-pinned `sqlalchemy>=2.0.36`, fails identically on this machine.
+Render pins `PYTHON_VERSION=3.11.9`, so production was never affected —
+this was purely a local-dev-on-3.14 gap, invisible until someone actually
+tried to import these models fresh in that environment. Fixed by raising
+the floor to `sqlalchemy>=2.0.51`; all 85 tests re-verified passing after
+the bump, unchanged.
+
 ## Module map
 
 | File | Purpose |
